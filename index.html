@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로또 번호 생성기</title>
+    <!-- Tailwind CSS CDN을 연결해요 - 이것으로 모든 디자인을 할 거예요 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 폭죽 효과 라이브러리 - 화려하고 전문적인 애니메이션을 만들어요! -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        /* ============================================
+           로또 공 3D 입체감 스타일
+           ============================================
+
+           진짜 로또 공처럼 보이도록 만드는 CSS입니다!
+
+           핵심 원리:
+           1. 방사형 그라디언트: 빛 받는 부분은 밝게, 그림자 부분은 어둡게
+           2. 하이라이트: 왼쪽 상단의 작은 흰색 반짝임 (빛 반사)
+           3. 다층 그림자: 4가지 그림자로 입체감과 깊이 표현
+        */
+
+        /* 공통 공 기본 스타일 */
+        .lotto-ball {
+            width: 3.5rem;              /* w-14와 동일 (56px) */
+            height: 3.5rem;             /* h-14와 동일 (56px) */
+            border-radius: 50%;         /* 완전한 원형 */
+            display: flex;              /* flexbox로 숫자 중앙 정렬 */
+            align-items: center;        /* 세로 중앙 */
+            justify-content: center;    /* 가로 중앙 */
+            color: white;               /* 흰색 숫자 */
+            font-size: 1.25rem;         /* text-xl */
+            font-weight: 700;           /* font-bold */
+            position: relative;         /* ::before 하이라이트를 위한 기준점 */
+
+            /* 4단계 다층 그림자로 입체감 표현
+               여러 개의 그림자를 쉼표로 연결하면 동시에 적용됩니다! */
+            box-shadow:
+                /* 1. 오른쪽 하단 내부 그림자 (inset) - 가장자리를 어둡게 */
+                inset -3px -3px 8px rgba(0, 0, 0, 0.3),
+
+                /* 2. 왼쪽 상단 내부 하이라이트 (inset) - 빛 받는 부분을 밝게 */
+                inset 2px 2px 6px rgba(255, 255, 255, 0.3),
+
+                /* 3. 바닥 그림자 - 공이 바닥에서 떠있는 것처럼 보이는 효과 */
+                0 6px 12px rgba(0, 0, 0, 0.25),
+
+                /* 4. 테두리 - 배경과 명확히 구분되도록 */
+                0 0 0 1px rgba(0, 0, 0, 0.1);
+
+            /* 부드러운 바운스 애니메이션
+               cubic-bezier는 통통 튀는 느낌을 만들어요! */
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        /* 하이라이트 (빛 반사 효과)
+           ::before는 요소 앞에 가상의 요소를 만들어요 */
+        .lotto-ball::before {
+            content: '';                /* 빈 내용 (시각 효과만 필요) */
+            position: absolute;         /* 공 안에서 자유롭게 위치 지정 */
+            top: 18%;                   /* 위에서 18% 떨어진 곳 */
+            left: 22%;                  /* 왼쪽에서 22% 떨어진 곳 */
+            width: 28%;                 /* 공 크기의 28% */
+            height: 28%;                /* 공 크기의 28% */
+            background: rgba(255, 255, 255, 0.65);  /* 반투명 흰색 */
+            border-radius: 50%;         /* 원형 하이라이트 */
+            filter: blur(3px);          /* 3px 흐림 효과로 부드러운 경계 */
+            z-index: 1;                 /* 숫자 아래에 표시 */
+        }
+
+        /* 숫자가 하이라이트에 가려지지 않도록 위로 올려요 */
+        .lotto-ball span {
+            position: relative;         /* z-index를 사용하기 위해 필요 */
+            z-index: 2;                 /* 하이라이트(z-index: 1)보다 위에 */
+        }
+
+        /* ============================================
+           5가지 색상별 3D 그라디언트
+           ============================================ */
+
+        /* 노란색 공 (1~10번)
+           방사형 그라디언트: 중심에서 가장자리로 색이 변해요
+           "circle at 30% 30%"는 빛이 왼쪽 상단에서 오는 것을 의미해요 */
+        .lotto-ball-yellow {
+            background: radial-gradient(
+                circle at 30% 30%,
+                #fef3c7,  /* 1단계: 매우 밝은 노랑 (하이라이트 - 빛 반사 부분) */
+                #fbbf24,  /* 2단계: 중간 노랑 (기본 색상) */
+                #d97706   /* 3단계: 진한 주황 (그림자 - 빛이 안 닿는 부분) */
+            );
+        }
+
+        /* 파란색 공 (11~20번) */
+        .lotto-ball-blue {
+            background: radial-gradient(
+                circle at 30% 30%,
+                #bfdbfe,  /* 1단계: 밝은 하늘색 (하이라이트) */
+                #3b82f6,  /* 2단계: 중간 파랑 (기본) */
+                #1e40af   /* 3단계: 진한 네이비 (그림자) */
+            );
+        }
+
+        /* 빨간색 공 (21~30번) */
+        .lotto-ball-red {
+            background: radial-gradient(
+                circle at 30% 30%,
+                #fecaca,  /* 1단계: 밝은 핑크 (하이라이트) */
+                #ef4444,  /* 2단계: 중간 빨강 (기본) */
+                #991b1b   /* 3단계: 진한 와인색 (그림자) */
+            );
+        }
+
+        /* 회색 공 (31~40번) */
+        .lotto-ball-gray {
+            background: radial-gradient(
+                circle at 30% 30%,
+                #d1d5db,  /* 1단계: 밝은 회색 (하이라이트) */
+                #4b5563,  /* 2단계: 중간 회색 (기본) */
+                #1f2937   /* 3단계: 진한 회색 (그림자) */
+            );
+        }
+
+        /* 초록색 공 (41~45번) */
+        .lotto-ball-green {
+            background: radial-gradient(
+                circle at 30% 30%,
+                #bbf7d0,  /* 1단계: 밝은 연두 (하이라이트) */
+                #22c55e,  /* 2단계: 중간 초록 (기본) */
+                #15803d   /* 3단계: 진한 초록 (그림자) */
+            );
+        }
+
+        /* ============================================
+           원리 설명 (초보자용):
+
+           Q: 왜 그라디언트가 입체감을 만드나요?
+           A: 실제 공은 빛을 받는 부분이 밝고, 빛이 닿지 않는 부분이 어두워요.
+              평면에 이 색상 변화를 넣으면 우리 뇌가 "입체"로 착각합니다!
+
+           Q: 왜 하이라이트가 중요한가요?
+           A: 실제 공에는 빛이 반사되는 "번쩍이는 점"이 있어요.
+              이게 있어야 "반짝반짝한 플라스틱"처럼 보입니다!
+
+           Q: 왜 여러 개의 그림자를 쓰나요?
+           A: 1) 내부 그림자 = 공의 곡면 표현
+              2) 바닥 그림자 = 공간감 표현
+              3) 테두리 = 배경과 분리
+              이 모든 걸 합쳐야 "진짜 공"처럼 보여요!
+           ============================================ */
+
+        /* ============================================
+           게임 개수 선택 버튼 스타일
+           ============================================
+
+           선택된 버튼과 미선택 버튼을 확실하게 구분하기 위해
+           색상과 입체적인 3D 효과를 적용합니다!
+        */
+
+        /* 기본 버튼 공통 스타일 */
+        .game-count-btn {
+            /* 크기 및 레이아웃 */
+            font-weight: 700;           /* 굵은 글자 */
+            padding: 1rem 0;            /* 위아래 여백 */
+            border-radius: 0.5rem;      /* 둥근 모서리 */
+            position: relative;         /* transform 기준점 */
+
+            /* 애니메이션 설정 */
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            /* cubic-bezier: 통통 튀는 느낌의 애니메이션 곡선 */
+
+            /* 마우스 커서 */
+            cursor: pointer;
+
+            /* 텍스트 선택 방지 */
+            user-select: none;
+        }
+
+        /* 미선택 상태 (기본) */
+        .game-btn-unselected {
+            /* 차분한 회색 그라디언트 (위에서 아래로) */
+            background: linear-gradient(
+                to bottom,
+                #e5e7eb,  /* 밝은 회색 (상단 - 하이라이트) */
+                #d1d5db,  /* 중간 회색 */
+                #9ca3af   /* 진한 회색 (하단 - 그림자) */
+            );
+
+            /* 회색 텍스트 */
+            color: #4b5563;
+
+            /* 얕은 그림자 - 평면적인 느낌 */
+            box-shadow:
+                0 2px 4px rgba(0, 0, 0, 0.1),           /* 바닥 그림자 */
+                inset 0 1px 0 rgba(255, 255, 255, 0.5); /* 상단 하이라이트 */
+        }
+
+        /* 미선택 버튼 호버 효과 */
+        .game-btn-unselected:hover {
+            /* 약간 밝아지는 효과 */
+            background: linear-gradient(
+                to bottom,
+                #f3f4f6,  /* 더 밝은 회색 */
+                #e5e7eb,
+                #d1d5db
+            );
+
+            /* 살짝 커지는 효과 */
+            transform: scale(1.05);
+
+            /* 그림자 강화 */
+            box-shadow:
+                0 4px 8px rgba(0, 0, 0, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+
+        /* 선택된 상태 (활성) */
+        .game-btn-selected {
+            /* 화려한 로또 테마 그라디언트 (노랑 → 주황) */
+            background: linear-gradient(
+                to bottom,
+                #fef3c7,  /* 매우 밝은 노랑 (상단 - 빛 반사) */
+                #fbbf24,  /* 중간 노랑 (로또 색상) */
+                #f59e0b,  /* 진한 주황 */
+                #d97706   /* 더 진한 주황 (하단 - 그림자) */
+            );
+
+            /* 흰색 텍스트 (대비 강화) */
+            color: white;
+
+            /* 깊은 3D 그림자 - 입체적인 느낌 */
+            box-shadow:
+                /* 1. 내부 상단 하이라이트 (inset) - 빛을 받는 부분 */
+                inset 0 2px 4px rgba(255, 255, 255, 0.4),
+
+                /* 2. 내부 하단 그림자 (inset) - 입체감 */
+                inset 0 -2px 4px rgba(0, 0, 0, 0.2),
+
+                /* 3. 외부 큰 그림자 - 떠있는 효과 */
+                0 8px 16px rgba(245, 158, 11, 0.4),
+
+                /* 4. 외부 작은 그림자 - 바닥 그림자 */
+                0 4px 8px rgba(0, 0, 0, 0.2),
+
+                /* 5. 테두리 강조 */
+                0 0 0 2px rgba(251, 191, 36, 0.3);
+
+            /* 살짝 위로 올라간 효과 */
+            transform: translateY(-2px) scale(1.08);
+        }
+
+        /* 선택된 버튼 호버 효과 */
+        .game-btn-selected:hover {
+            /* 더 진한 그라디언트 */
+            background: linear-gradient(
+                to bottom,
+                #fef3c7,
+                #f59e0b,  /* 더 진한 주황 */
+                #d97706,
+                #b45309   /* 훨씬 진한 주황 */
+            );
+
+            /* 더 크게! */
+            transform: translateY(-3px) scale(1.12);
+
+            /* 그림자 더 강하게 */
+            box-shadow:
+                inset 0 2px 4px rgba(255, 255, 255, 0.5),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.3),
+                0 12px 24px rgba(245, 158, 11, 0.5),
+                0 6px 12px rgba(0, 0, 0, 0.3),
+                0 0 0 3px rgba(251, 191, 36, 0.4);
+        }
+
+        /* 버튼 클릭 시 눌리는 효과 (active) */
+        .game-count-btn:active {
+            /* 아래로 눌림 */
+            transform: translateY(1px) scale(0.98);
+
+            /* 그림자 감소 (눌린 느낌) */
+            box-shadow:
+                inset 0 2px 4px rgba(0, 0, 0, 0.2),
+                0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ============================================
+           초보자를 위한 원리 설명:
+
+           Q: 왜 box-shadow를 여러 개 쓰나요?
+           A: 실제 버튼은 빛을 받으면 여러 방향에서 그림자가 생겨요.
+              - inset: 버튼 안쪽의 입체감 (위는 밝고 아래는 어두움)
+              - 외부: 버튼이 떠있는 효과
+              이걸 합치면 3D처럼 보입니다!
+
+           Q: transform: translateY는 뭔가요?
+           A: Y축(세로)으로 이동시켜요.
+              - translateY(-2px): 위로 2px 올림 (선택된 느낌)
+              - translateY(1px): 아래로 1px 내림 (눌린 느낌)
+
+           Q: cubic-bezier는 뭔가요?
+           A: 애니메이션의 속도 곡선이에요.
+              우리가 쓴 값은 "통통 튀는" 느낌을 만들어요!
+              (처음엔 빠르게, 끝에 살짝 튕김)
+           ============================================ */
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!--
+        전체 컨테이너:
+        - flex: 세로로 요소들을 배치하는 상자
+        - min-h-screen: 화면 전체 높이만큼 크기를 차지
+        - items-center: 가운데 정렬
+        - justify-center: 세로 방향 가운데 정렬
+        - py-8: 위아래 여백 8단위
+        - px-4: 좌우 여백 4단위
+    -->
+    <div class="flex flex-col items-center justify-center min-h-screen py-8 px-4">
+
+        <!-- 메인 카드 영역 -->
+        <!--
+            bg-white: 흰색 배경
+            rounded-2xl: 모서리를 둥글게
+            shadow-2xl: 큰 그림자 효과
+            p-8: 안쪽 여백 8단위
+            max-w-4xl: 최대 너비 제한
+            w-full: 가로폭 100%
+        -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full">
+
+            <!-- 헤더 섹션 -->
+            <div class="text-center mb-8">
+                <!--
+                    로또 로고 이미지 영역
+                    mx-auto: 좌우 가운데 정렬
+                    mb-4: 아래 여백 4단위
+                -->
+                <div class="mx-auto mb-4 w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                    <!--
+                        텍스트 스타일:
+                        text-white: 흰색 글자
+                        text-3xl: 글자 크기 3xl (매우 큼)
+                        font-bold: 글자 두께 굵게
+                    -->
+                    <span class="text-white text-3xl font-bold">🍀</span>
+                </div>
+                <!-- 제목 -->
+                <h1 class="text-4xl font-bold text-gray-800 mb-2">로또 번호 생성기</h1>
+                <!-- 부제목 -->
+                <p class="text-gray-600">행운의 번호를 추천해드립니다</p>
+            </div>
+
+            <!-- 생성 개수 선택 영역 -->
+            <div class="mb-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4 text-center">생성할 게임 수를 선택하세요</h2>
+
+                <!--
+                    버튼 그룹 컨테이너
+                    grid: 격자 형태로 배치
+                    grid-cols-5: 5개의 열로 나누기
+                    gap-3: 버튼 사이 간격 3단위
+                    max-w-md: 최대 너비 제한
+                    mx-auto: 가운데 정렬
+                -->
+                <div class="grid grid-cols-5 gap-3 max-w-md mx-auto">
+                    <!--
+                        각 버튼의 스타일:
+                        game-count-btn: 나중에 JavaScript에서 찾기 위한 클래스
+                        bg-gradient-to-r: 그라디언트 배경 (왼쪽에서 오른쪽으로)
+                        from-blue-500 to-blue-600: 파란색 계열 그라디언트
+                        hover:from-blue-600 hover:to-blue-700: 마우스 올리면 더 진한 파란색
+                        text-white: 흰색 글자
+                        font-bold: 굵은 글자
+                        py-4: 위아래 여백 4단위
+                        rounded-lg: 모서리 둥글게
+                        shadow-md: 중간 그림자
+                        transition: 부드러운 효과 전환
+                        transform hover:scale-105: 마우스 올리면 크기 1.05배
+                    -->
+                    <!-- 각 버튼은 game-count-btn (공통 스타일) + game-btn-unselected (미선택 스타일) 클래스를 가져요
+                         JavaScript에서 선택하면 game-btn-unselected가 game-btn-selected로 바뀝니다! -->
+                    <button class="game-count-btn game-btn-unselected" data-count="1">
+                        1
+                    </button>
+                    <button class="game-count-btn game-btn-unselected" data-count="2">
+                        2
+                    </button>
+                    <button class="game-count-btn game-btn-unselected" data-count="3">
+                        3
+                    </button>
+                    <button class="game-count-btn game-btn-unselected" data-count="4">
+                        4
+                    </button>
+                    <button class="game-count-btn game-btn-unselected" data-count="5">
+                        5
+                    </button>
+                </div>
+            </div>
+
+            <!-- 번호 생성 버튼 -->
+            <!--
+                w-full: 가로폭 100%
+                bg-gradient-to-r: 그라디언트 배경
+                from-yellow-400 to-orange-500: 노란색에서 주황색으로
+                hover:from-yellow-500 hover:to-orange-600: 마우스 올리면 더 진한 색
+                text-white: 흰색 글자
+                text-xl: 큰 글자
+                font-bold: 굵은 글자
+                py-4: 위아래 여백
+                rounded-xl: 모서리 둥글게
+                shadow-lg: 큰 그림자
+                transition: 부드러운 효과
+                transform hover:scale-102: 마우스 올리면 살짝 커짐
+                mb-8: 아래 여백
+            -->
+            <button id="generateBtn" class="w-full bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white text-xl font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-102 mb-8">
+                🎱 행운의 번호 생성하기
+            </button>
+
+            <!-- 생성된 번호 표시 영역 -->
+            <div id="results" class="space-y-4">
+                <!--
+                    초기 안내 메시지
+                    text-center: 가운데 정렬
+                    text-gray-400: 회색 글자
+                    py-12: 위아래 여백
+                -->
+                <div class="text-center text-gray-400 py-12">
+                    <p class="text-lg">👆 개수를 선택하고 버튼을 눌러주세요</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 푸터 정보 -->
+        <!--
+            mt-8: 위 여백
+            text-center: 가운데 정렬
+            text-gray-600: 회색 글자
+            text-sm: 작은 글자
+        -->
+        <div class="mt-8 text-center text-gray-600 text-sm">
+            <p>※ 본 번호는 참고용이며, 당첨을 보장하지 않습니다.</p>
+        </div>
+    </div>
+
+    <!--
+        외부 JavaScript 파일 연결
+        이 파일에서 버튼 클릭 이벤트와 번호 생성 로직을 처리할 거예요
+    -->
+    <script src="client.js"></script>
+</body>
+</html>
